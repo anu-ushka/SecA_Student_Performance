@@ -1,164 +1,158 @@
 # ==============================
-# 📊 STUDENT LEARNING ANALYTICS
+# 📊 STUDENT AI PERFORMANCE DASHBOARD
 # ==============================
 
 import streamlit as st
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LinearRegression, LogisticRegression
 from sklearn.cluster import KMeans
 from sklearn.metrics import r2_score, mean_squared_error, accuracy_score, confusion_matrix
 
-
-# ------------------------------
-# PAGE TITLE
-# ------------------------------
-st.set_page_config(page_title="Student AI Dashboard", layout="wide")
-
-st.title("📊 Student Academic Performance Intelligence Dashboard")
-st.markdown("### Predictive Insights Powered by Machine Learning")
+from preprocessing import preprocess_data
 
 
-# ------------------------------
-# FILE UPLOAD
-# ------------------------------
-uploaded_file = st.file_uploader("Upload Student CSV", type=["csv"])
+# -----------------------------
+# PAGE CONFIG
+# -----------------------------
+st.set_page_config(page_title="AI Study Coach - Analytics", layout="wide")
 
-if uploaded_file is not None:
-
-    df = pd.read_csv(uploaded_file)
-    st.subheader("📁 Dataset Preview")
-    st.dataframe(df.head())
-
-    # ------------------------------
-    # BASIC CHECK
-    # ------------------------------
-    required_columns = ['quiz_score', 'assignment_score', 'time_spent', 'final_score']
-
-    if not all(col in df.columns for col in required_columns):
-        st.error("CSV must contain: quiz_score, assignment_score, time_spent, final_score")
-    else:
-
-        # ------------------------------
-        # PREPROCESSING
-        # ------------------------------
-        df = df.dropna()
-
-        X = df[['quiz_score', 'assignment_score', 'time_spent']]
-        y_reg = df['final_score']
-
-        scaler = StandardScaler()
-        X_scaled = scaler.fit_transform(X)
-
-        # =====================================================
-        # 1️⃣ LINEAR REGRESSION (Predict Final Score)
-        # =====================================================
-        st.header("📈 Linear Regression - Score Prediction")
-
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y_reg, test_size=0.2, random_state=42
-        )
-
-        lr = LinearRegression()
-        lr.fit(X_train, y_train)
-
-        y_pred = lr.predict(X_test)
-
-        r2 = r2_score(y_test, y_pred)
-        rmse = np.sqrt(mean_squared_error(y_test, y_pred))
-
-        col1, col2, col3 = st.columns(3)
-
-        col1.metric("🎯 Avg Predicted Score", f"{np.mean(y_pred):.2f}")
-        col2.metric("📈 R² Score", f"{r2:.3f}")
-        col3.metric("📉 RMSE", f"{rmse:.2f}")
-
-        # Graph
-        st.subheader("Actual vs Predicted Scores")
-        fig1, ax1 = plt.subplots()
-        ax1.scatter(y_test, y_pred)
-        ax1.set_xlabel("Actual Score")
-        ax1.set_ylabel("Predicted Score")
-        st.pyplot(fig1)
+st.title("🎓 Intelligent Learning Analytics Dashboard")
+st.markdown("From Predictive ML to AI Study Coaching")
 
 
-        # =====================================================
-        # 2️⃣ LOGISTIC REGRESSION (Pass / Fail)
-        # =====================================================
-        st.header("🎓 Logistic Regression - Pass/Fail Classification")
+# -----------------------------
+# LOAD DATA (AUTO)
+# -----------------------------
+@st.cache_data
+def load_data():
+    return pd.read_csv("Dataset/student_performance.csv", sep="\t")
 
-        df['pass_fail'] = df['final_score'].apply(lambda x: 1 if x >= 40 else 0)
+df = load_data()
 
-        y_class = df['pass_fail']
+st.write("Shape of dataset:", df.shape)
+st.write("Columns:", list(df.columns))
+st.write(df.head())
 
-        X_train, X_test, y_train, y_test = train_test_split(
-            X_scaled, y_class, test_size=0.2, random_state=42
-        )
+# -----------------------------
+# PREPROCESS USING YOUR PIPELINE
+# -----------------------------
+df, X_scaled, y_reg, scaler = preprocess_data(df)
+st.write("Columns in dataset:", df.columns)
 
-        log_model = LogisticRegression()
-        log_model.fit(X_train, y_train)
-
-        y_pred_class = log_model.predict(X_test)
-
-        acc = accuracy_score(y_test, y_pred_class)
-
-        st.metric("🎯 Classification Accuracy", f"{acc:.2f}")
-
-        # Confusion Matrix
-        cm = confusion_matrix(y_test, y_pred_class)
-
-        st.subheader("Confusion Matrix")
-        fig2, ax2 = plt.subplots()
-        ax2.imshow(cm)
-        ax2.set_xlabel("Predicted")
-        ax2.set_ylabel("Actual")
-        st.pyplot(fig2)
+# -----------------------------
+# TABS
+# -----------------------------
+tab1, tab2, tab3, tab4 = st.tabs(
+    ["📈 Score Prediction", "🎯 Pass/Fail", "🧠 Learner Segments", "📌 Recommendations"]
+)
 
 
-        # =====================================================
-        # 3️⃣ K-MEANS CLUSTERING (Learner Groups)
-        # =====================================================
-        st.header("🧠 K-Means Clustering - Learner Segmentation")
+# ======================================================
+# TAB 1 — LINEAR REGRESSION
+# ======================================================
+with tab1:
 
-        kmeans = KMeans(n_clusters=3, random_state=42)
-        clusters = kmeans.fit_predict(X_scaled)
+    st.subheader("Predicting Final Exam Scores")
 
-        df['Cluster'] = clusters
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y_reg, test_size=0.2, random_state=42
+    )
 
-        st.write("Cluster Distribution")
-        st.write(df['Cluster'].value_counts())
+    model = LinearRegression()
+    model.fit(X_train, y_train)
+    y_pred = model.predict(X_test)
 
-        # Cluster Visualization
-        st.subheader("Cluster Visualization (Quiz vs Assignment)")
-        fig3, ax3 = plt.subplots()
-        scatter = ax3.scatter(
-            df['quiz_score'],
-            df['assignment_score'],
-            c=clusters
-        )
-        ax3.set_xlabel("Quiz Score")
-        ax3.set_ylabel("Assignment Score")
-        st.pyplot(fig3)
+    r2 = r2_score(y_test, y_pred)
+    rmse = np.sqrt(mean_squared_error(y_test, y_pred))
 
-        # =====================================================
-        # BASIC RECOMMENDATION LOGIC
-        # =====================================================
-        st.header("📌 Basic Study Recommendations")
+    col1, col2 = st.columns(2)
+    col1.metric("R² Score", f"{r2:.3f}")
+    col2.metric("RMSE", f"{rmse:.2f}")
 
-        cluster_means = df.groupby('Cluster')[['quiz_score', 'assignment_score']].mean()
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, y_pred)
+    ax.set_xlabel("Actual Score")
+    ax.set_ylabel("Predicted Score")
+    st.pyplot(fig)
 
-        for cluster in cluster_means.index:
-            st.write(f"### Cluster {cluster}")
-            if cluster_means.loc[cluster, 'quiz_score'] < 50:
-                st.write("🔹 Needs improvement in quizzes.")
-            if cluster_means.loc[cluster, 'assignment_score'] < 50:
-                st.write("🔹 Needs improvement in assignments.")
-            else:
-                st.write("🔹 Performing well. Focus on advanced practice.")
 
-else:
-    st.info("Upload a CSV file to begin.")
+# ======================================================
+# TAB 2 — LOGISTIC REGRESSION
+# ======================================================
+with tab2:
+
+    st.subheader("Pass / Fail Classification")
+
+    y_class = df['Pass']   # Already created in preprocessing.py
+
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_scaled, y_class, test_size=0.2, random_state=42
+    )
+
+    clf = LogisticRegression()
+    clf.fit(X_train, y_train)
+    y_pred_class = clf.predict(X_test)
+
+    acc = accuracy_score(y_test, y_pred_class)
+    st.metric("Accuracy", f"{acc:.2f}")
+
+    cm = confusion_matrix(y_test, y_pred_class)
+
+    fig, ax = plt.subplots()
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Blues")
+    ax.set_xlabel("Predicted")
+    ax.set_ylabel("Actual")
+    st.pyplot(fig)
+
+
+# ======================================================
+# TAB 3 — KMEANS CLUSTERING
+# ======================================================
+with tab3:
+
+    st.subheader("Student Segmentation")
+
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    clusters = kmeans.fit_predict(X_scaled)
+    df['Cluster'] = clusters
+
+    st.bar_chart(df['Cluster'].value_counts())
+
+    fig, ax = plt.subplots()
+    ax.scatter(
+        df['StudyHours'],
+        df['ExamScore'],
+        c=clusters
+    )
+    ax.set_xlabel("Study Hours")
+    ax.set_ylabel("Exam Score")
+    st.pyplot(fig)
+
+
+# ======================================================
+# TAB 4 — SMART RECOMMENDATIONS
+# ======================================================
+with tab4:
+
+    st.subheader("AI-Based Study Insights")
+
+    cluster_means = df.groupby('Cluster')[['StudyHours', 'ExamScore']].mean()
+
+    for cluster in cluster_means.index:
+
+        st.markdown(f"### 🎓 Learner Group {cluster}")
+
+        hours = cluster_means.loc[cluster, 'StudyHours']
+        score = cluster_means.loc[cluster, 'ExamScore']
+
+        if score < 50:
+            st.warning("Needs improvement. Increase study consistency.")
+        elif score >= 75:
+            st.success("High Performer. Start advanced topics.")
+        else:
+            st.info("Moderate performer. Improve weak subject areas.")
